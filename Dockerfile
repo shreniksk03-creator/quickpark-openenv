@@ -1,16 +1,10 @@
-FROM python:3.10-slim
+FROM python:3.10
 
-WORKDIR /app
+WORKDIR /code
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY ./requirements.txt /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-# Copy all files
 COPY . .
 
-# Ensure the port is 7860
-EXPOSE 7860
-
-# Start uvicorn directly
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]

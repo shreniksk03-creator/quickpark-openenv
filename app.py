@@ -1,5 +1,17 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+# THIS LINE IS CRITICAL - The name must be lowercase 'app'
+app = FastAPI() 
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+
+
+from fastapi import FastAPI
+from pydantic import BaseModel
 from typing import Optional, List
 
 app = FastAPI()

@@ -3,27 +3,21 @@ import json
 from openai import OpenAI
 from pydantic import ValidationError
 
-# Import our simulation from the env.py file we just made!
 from env import QuickParkEnv, QuickParkAction, ActionType
 
-# --- 1. SETUP API CREDENTIALS ---
-# The hackathon strictly requires these exact variable names
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-# We will pass the token in the terminal, but leave a placeholder just in case
-API_KEY = os.getenv("HF_TOKEN", "YOUR_TOKEN_HERE") 
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct") 
+HF_TOKEN = os.getenv("HF_TOKEN") 
 
-# Initialize the OpenAI client pointing to Hugging Face
 client = OpenAI(
     base_url=API_BASE_URL,
-    api_key=API_KEY
+    api_key=HF_TOKEN  
 )
 
 def run_baseline():
     print("🚗 Starting Quick Park Admin Simulation...")
     env = QuickParkEnv()
         
-    # We loop 3 times to play all 3 tasks (Easy, Medium, Hard)
     for episode in range(3):
         print(f"\n==============================================")
         print(f"🎬 STARTING EPISODE {episode + 1}")
@@ -32,11 +26,8 @@ def run_baseline():
         obs = env.reset() 
         max_steps = 3
         
-        # --- PHASE 2 FIX: START BLOCK ---
-        # We define a task name for the grader and print the START block immediately after reset
         task_name = f"QuickPark_Task_{episode + 1}"
         print(f"[START] task={task_name}", flush=True)
-        # --------------------------------
                 
         system_prompt = """
         You are an expert AI admin for the Quick Park app.
@@ -57,7 +48,6 @@ def run_baseline():
         }
         """
         
-        # Track variables for the END block
         final_score = 0.0
         steps_taken = 0
         
@@ -90,27 +80,19 @@ def run_baseline():
                 print(f"⚠️ Error parsing AI action: {e}. Defaulting to NOOP.")
                 action = QuickParkAction(action_type=ActionType.NOOP)
             
-            # Environment step
             obs, reward, is_done, info = env.step(action)
                         
             print(f"⚖️ Result: {info['info']}")
             print(f"🏆 Score: {reward.score}")
             
             final_score = reward.score
-            
-            # --- PHASE 2 FIX: STEP BLOCK ---
-            # Print the step evaluation metrics with flush=True
             print(f"[STEP] step={steps_taken} reward={reward.score}", flush=True)
-            # -------------------------------
                         
             if is_done:
                 print(f"\n✅ Task Complete! Final Score: {reward.score} / 1.0")
                 break
         
-        # --- PHASE 2 FIX: END BLOCK ---
-        # Print the final validation block for this episode with flush=True
         print(f"[END] task={task_name} score={final_score} steps={steps_taken}", flush=True)
-        # ------------------------------
 
 if __name__ == "__main__":
     run_baseline()

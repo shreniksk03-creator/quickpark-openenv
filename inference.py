@@ -81,15 +81,20 @@ def run_baseline():
                 action = QuickParkAction(action_type=ActionType.NOOP)
             
             obs, reward, is_done, info = env.step(action)
+            
+            # --- NEW FIX: CLAMP THE SCORE ---
+            # This ensures the score is never exactly 0.0 or exactly 1.0
+            safe_score = max(0.01, min(0.99, float(reward.score)))
+            # --------------------------------
                         
             print(f"⚖️ Result: {info['info']}")
-            print(f"🏆 Score: {reward.score}")
+            print(f"🏆 Score: {safe_score}")
             
-            final_score = reward.score
-            print(f"[STEP] step={steps_taken} reward={reward.score}", flush=True)
+            final_score = safe_score
+            print(f"[STEP] step={steps_taken} reward={safe_score}", flush=True)
                         
             if is_done:
-                print(f"\n✅ Task Complete! Final Score: {reward.score} / 1.0")
+                print(f"\n✅ Task Complete! Final Score: {safe_score} / 1.0")
                 break
         
         print(f"[END] task={task_name} score={final_score} steps={steps_taken}", flush=True)

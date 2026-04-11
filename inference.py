@@ -27,7 +27,9 @@ def run_baseline():
         max_steps = 3
         
         task_name = f"QuickPark_Task_{episode + 1}"
-        print(f"[START] task={task_name}", flush=True)
+        
+        # --- NEW FORMAT: START BLOCK ---
+        print(f"[START] task={task_name} env=quickpark model={MODEL_NAME}", flush=True)
                 
         system_prompt = """
         You are an expert AI admin for the Quick Park app.
@@ -50,12 +52,16 @@ def run_baseline():
         
         final_score = 0.0
         steps_taken = 0
+        rewards_history = [] # Track rewards for the END block
         
         for step in range(max_steps):
             steps_taken += 1
             print(f"\n--- Step {step + 1} ---")
             print(f"👀 AI Observation:\n{obs.model_dump_json(indent=2)}")
-                        
+            
+            action_str = "NOOP"
+            error_msg = "null"
+            
             try:
                 response = client.chat.completions.create(
                     model=MODEL_NAME,
@@ -74,30 +80,35 @@ def run_baseline():
                                     
                 action_dict = json.loads(ai_response)
                 action = QuickParkAction(**action_dict)
-                print(f"🤖 AI chose action: {action.action_type}")
+                action_str = action.action_type
+                print(f"🤖 AI chose action: {action_str}")
                             
             except Exception as e:
+                error_msg = str(e).replace('\n', ' ') # Remove newlines from error
                 print(f"⚠️ Error parsing AI action: {e}. Defaulting to NOOP.")
                 action = QuickParkAction(action_type=ActionType.NOOP)
             
             obs, reward, is_done, info = env.step(action)
             
-            # --- NEW FIX: CLAMP THE SCORE ---
-            # This ensures the score is never exactly 0.0 or exactly 1.0
             safe_score = max(0.01, min(0.99, float(reward.score)))
-            # --------------------------------
+            rewards_history.append(f"{safe_score:.2f}")
+            final_score = safe_score
                         
             print(f"⚖️ Result: {info['info']}")
             print(f"🏆 Score: {safe_score}")
             
-            final_score = safe_score
-            print(f"[STEP] step={steps_taken} reward={safe_score}", flush=True)
+            # --- NEW FORMAT: STEP BLOCK ---
+            done_str = "true" if is_done else "false"
+            print(f"[STEP] step={steps_taken} action={action_str} reward={safe_score:.2f} done={done_str} error={error_msg}", flush=True)
                         
             if is_done:
-                print(f"\n✅ Task Complete! Final Score: {safe_score} / 1.0")
+                print(f"\n✅ Task Complete! Final Score: {safe_score:.2f} / 1.00")
                 break
         
-        print(f"[END] task={task_name} score={final_score} steps={steps_taken}", flush=True)
+        # --- NEW FORMAT: END BLOCK ---
+        success_str = "true" if final_score > 0.5 else "false"
+        rewards_csv = ",".join(rewards_history)
+        print(f"[END] success={success_str} steps={steps_taken} rewards={rewards_csv}", flush=True)
 
 if __name__ == "__main__":
     run_baseline()

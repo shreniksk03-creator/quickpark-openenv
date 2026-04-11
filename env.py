@@ -44,7 +44,8 @@ class QuickParkAction(BaseModel):
     message_body: Optional[str] = Field(description="Use only for SEND_MESSAGE.", default=None)
 
 class QuickParkReward(BaseModel):
-    score: float = Field(ge=0.0, le=1.0, description="The reward signal from 0.0 to 1.0")
+    # CHANGED HERE: gt instead of ge, lt instead of le
+    score: float = Field(gt=0.0, lt=1.0, description="The reward signal strictly between 0 and 1")
     is_done: bool = Field(description="True if the episode/task is finished.")
     info: str = Field(description="Human-readable explanation of the score.")
 
@@ -109,57 +110,55 @@ class QuickParkEnv:
 
     def step(self, action: QuickParkAction):
         """Processes the AI's action and grades all 3 task types."""
-        # CHANGED: Default failure is now 0.01 instead of 0.0
         reward_score = 0.01
         is_done = False
         message = "Action failed or invalid command."
         ticket = self.current_state.active_ticket
 
         if not ticket:
-            # CHANGED: 0.0 to 0.01
             return self.current_state, QuickParkReward(score=0.01, is_done=True, info="No active ticket."), True, {"info": "No active ticket"}
 
         # --- GRADING EASY TASK ---
         if ticket.ticket_type == TicketType.NEW_LISTING:
             if action.action_type == ActionType.APPROVE_LISTING:
-                reward_score = 0.99 # CHANGED: 1.0 to 0.99
+                reward_score = 0.99 
                 is_done = True
                 message = "Success: Listing approved."
             else:
-                reward_score = 0.01 # CHANGED: 0.0 to 0.01
+                reward_score = 0.01 
                 message = f"Error: Expected APPROVE_LISTING, got {action.action_type}."
 
         # --- GRADING MEDIUM TASK ---
         elif ticket.ticket_type == TicketType.CANCELLATION:
             if action.action_type == ActionType.ISSUE_REFUND:
                 if action.refund_amount == 25.0:
-                    reward_score = 0.99 # CHANGED: 1.0 to 0.99
+                    reward_score = 0.99 
                     is_done = True
                     message = "Success: Correct refund of $25.00 issued."
                 else:
-                    reward_score = 0.5  # This is fine (strictly between 0 and 1)
+                    reward_score = 0.5  
                     is_done = True
                     message = f"Partial Success: Refund issued, but wrong amount (${action.refund_amount})."
             else:
-                reward_score = 0.01 # CHANGED: 0.0 to 0.01
+                reward_score = 0.01 
                 message = f"Error: Expected ISSUE_REFUND, got {action.action_type}."
 
         # --- GRADING HARD TASK ---
         elif ticket.ticket_type == TicketType.DOUBLE_BOOKING:
             if action.action_type == ActionType.REASSIGN_SPOT:
                 if action.new_spot_id == "spot_14": 
-                    reward_score = 0.99  # CHANGED: 1.0 to 0.99
+                    reward_score = 0.99  
                     is_done = True
                     message = "Success! Driver reassigned to available spot 14."
                 else:
-                    reward_score = 0.01 # CHANGED: 0.0 to 0.01
+                    reward_score = 0.01 
                     message = f"Error: Cannot reassign to {action.new_spot_id}."
             elif action.action_type == ActionType.ISSUE_REFUND:
-                reward_score = 0.4  # This is fine
+                reward_score = 0.4  
                 is_done = True
                 message = "Partial Success: Driver refunded instead of reassigned."
             else:
-                reward_score = 0.01 # CHANGED: 0.0 to 0.01
+                reward_score = 0.01 
                 message = f"Error: Action {action.action_type} did not resolve the double booking."
 
         # Clean up and return

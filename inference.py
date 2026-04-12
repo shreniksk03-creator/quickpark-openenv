@@ -28,7 +28,6 @@ def run_baseline():
         
         task_name = f"QuickPark_Task_{episode + 1}"
         
-        # --- NEW FORMAT: START BLOCK ---
         print(f"[START] task={task_name} env=quickpark model={MODEL_NAME}", flush=True)
                 
         system_prompt = """
@@ -50,9 +49,9 @@ def run_baseline():
         }
         """
         
-        final_score = 0.0
+        final_score = 0.05
         steps_taken = 0
-        rewards_history = [] # Track rewards for the END block
+        rewards_history = [] 
         
         for step in range(max_steps):
             steps_taken += 1
@@ -84,7 +83,7 @@ def run_baseline():
                 print(f"🤖 AI chose action: {action_str}")
                             
             except Exception as e:
-                error_msg = str(e).replace('\n', ' ') # Remove newlines from error
+                error_msg = str(e).replace('\n', ' ') 
                 print(f"⚠️ Error parsing AI action: {e}. Defaulting to NOOP.")
                 action = QuickParkAction(action_type=ActionType.NOOP)
             
@@ -95,17 +94,14 @@ def run_baseline():
             final_score = safe_score
                         
             print(f"⚖️ Result: {info['info']}")
-            print(f"🏆 Score: {safe_score}")
             
-            # --- NEW FORMAT: STEP BLOCK ---
             done_str = "true" if is_done else "false"
             print(f"[STEP] step={steps_taken} action={action_str} reward={safe_score:.2f} done={done_str} error={error_msg}", flush=True)
                         
             if is_done:
-                print(f"\n✅ Task Complete! Final Score: {safe_score:.2f} / 1.00")
+                print(f"\n✅ Task Complete! Reward: {safe_score:.2f}")
                 break
         
-        # --- NEW FORMAT: END BLOCK ---
         success_str = "true" if final_score > 0.5 else "false"
         rewards_csv = ",".join(rewards_history)
         print(f"[END] success={success_str} steps={steps_taken} rewards={rewards_csv}", flush=True)

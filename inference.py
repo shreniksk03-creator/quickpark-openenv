@@ -49,7 +49,7 @@ def run_baseline():
         }
         """
         
-        final_score = 0.05
+        final_score = 0.01
         steps_taken = 0
         rewards_history = [] 
         
@@ -89,7 +89,7 @@ def run_baseline():
             
             obs, reward, is_done, info = env.step(action)
             
-            safe_score = max(0.01, min(0.99, float(reward.score)))
+            safe_score = float(reward.score)
             rewards_history.append(f"{safe_score:.2f}")
             final_score = safe_score
                         

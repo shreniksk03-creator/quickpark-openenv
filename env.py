@@ -2,10 +2,6 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
 
-# ==========================================
-# PART 1: THE BLUEPRINT (MODELS & ENUMS)
-# ==========================================
-
 class ActionType(str, Enum):
     APPROVE_LISTING = "APPROVE_LISTING"
     REJECT_LISTING = "REJECT_LISTING"
@@ -44,39 +40,29 @@ class QuickParkAction(BaseModel):
     message_body: Optional[str] = Field(description="Use only for SEND_MESSAGE.", default=None)
 
 class QuickParkReward(BaseModel):
-    # CHANGED HERE: gt instead of ge, lt instead of le
-    score: float = Field(gt=0.0, lt=1.0, description="The reward signal strictly between 0 and 1")
+    score: float = Field(gt=0.01, lt=0.99, description="Reward strictly within bounds")
     is_done: bool = Field(description="True if the episode/task is finished.")
     info: str = Field(description="Human-readable explanation of the score.")
-
-# ==========================================
-# PART 2: THE GAME ENGINE (ENVIRONMENT)
-# ==========================================
 
 class QuickParkEnv:
     def __init__(self):
         self.current_state = None
-        self.task_counter = 0  # Used to cycle between Easy, Medium, Hard
+        self.task_counter = 0
 
     def reset(self) -> QuickParkObservation:
-        """Cycles between Easy, Medium, and Hard tasks."""
-        
         task_level = self.task_counter % 3
         self.task_counter += 1
 
         if task_level == 0:
-            # EASY TASK: Approve a listing
             ticket = SupportTicket(
                 ticket_id="TKT-1001",
                 ticket_type=TicketType.NEW_LISTING,
                 description="EASY TASK: Review new parking spot listing. The spot details look safe and valid. Please approve the listing.",
-                driver_id=None,
                 spot_id="spot_99"
             )
             spots = []
             
         elif task_level == 1:
-            # MEDIUM TASK: Issue a specific refund
             ticket = SupportTicket(
                 ticket_id="TKT-2002",
                 ticket_type=TicketType.CANCELLATION,
@@ -87,7 +73,6 @@ class QuickParkEnv:
             spots = [SpotStatus(spot_id="spot_5", is_available=False, daily_rate=25.0)]
             
         else:
-            # HARD TASK: Double Booking
             ticket = SupportTicket(
                 ticket_id="TKT-9942",
                 ticket_type=TicketType.DOUBLE_BOOKING,
@@ -109,59 +94,55 @@ class QuickParkEnv:
         return self.current_state
 
     def step(self, action: QuickParkAction):
-        """Processes the AI's action and grades all 3 task types."""
-        reward_score = 0.01
+        # Base failure is now 0.05 to prevent cumulative sums hitting 1.0
+        reward_score = 0.05
         is_done = False
         message = "Action failed or invalid command."
         ticket = self.current_state.active_ticket
 
         if not ticket:
-            return self.current_state, QuickParkReward(score=0.01, is_done=True, info="No active ticket."), True, {"info": "No active ticket"}
+            return self.current_state, QuickParkReward(score=0.05, is_done=True, info="No active ticket."), True, {"info": "No active ticket"}
 
-        # --- GRADING EASY TASK ---
         if ticket.ticket_type == TicketType.NEW_LISTING:
             if action.action_type == ActionType.APPROVE_LISTING:
-                reward_score = 0.99 
+                reward_score = 0.85 # Success scaled down
                 is_done = True
                 message = "Success: Listing approved."
             else:
-                reward_score = 0.01 
+                reward_score = 0.05
                 message = f"Error: Expected APPROVE_LISTING, got {action.action_type}."
 
-        # --- GRADING MEDIUM TASK ---
         elif ticket.ticket_type == TicketType.CANCELLATION:
             if action.action_type == ActionType.ISSUE_REFUND:
                 if action.refund_amount == 25.0:
-                    reward_score = 0.99 
+                    reward_score = 0.85
                     is_done = True
                     message = "Success: Correct refund of $25.00 issued."
                 else:
-                    reward_score = 0.5  
+                    reward_score = 0.45
                     is_done = True
                     message = f"Partial Success: Refund issued, but wrong amount (${action.refund_amount})."
             else:
-                reward_score = 0.01 
+                reward_score = 0.05
                 message = f"Error: Expected ISSUE_REFUND, got {action.action_type}."
 
-        # --- GRADING HARD TASK ---
         elif ticket.ticket_type == TicketType.DOUBLE_BOOKING:
             if action.action_type == ActionType.REASSIGN_SPOT:
                 if action.new_spot_id == "spot_14": 
-                    reward_score = 0.99  
+                    reward_score = 0.85
                     is_done = True
                     message = "Success! Driver reassigned to available spot 14."
                 else:
-                    reward_score = 0.01 
+                    reward_score = 0.05
                     message = f"Error: Cannot reassign to {action.new_spot_id}."
             elif action.action_type == ActionType.ISSUE_REFUND:
-                reward_score = 0.4  
+                reward_score = 0.45
                 is_done = True
                 message = "Partial Success: Driver refunded instead of reassigned."
             else:
-                reward_score = 0.01 
+                reward_score = 0.05
                 message = f"Error: Action {action.action_type} did not resolve the double booking."
 
-        # Clean up and return
         if is_done:
             self.current_state.active_ticket = None
 
